@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>블로그 오운드 마케팅 성과 대시보드</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f6f7fb;
+    --card: #ffffff;
+    --border: #e5e7ee;
+    --text: #1f2430;
+    --muted: #6b7280;
+    --accent: #4f46e5;
+    --accent-soft: #eef0fe;
+    --good: #0f9d58;
+    --bad: #d93025;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Pretendard", "Apple SD Gothic Neo", sans-serif;
+    padding: 24px;
+  }
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .header h1 { font-size: 22px; margin: 0 0 4px 0; }
+  .header .sub { color: var(--muted); font-size: 13px; }
+  .header .meta { text-align: right; font-size: 12px; color: var(--muted); }
+  .header .meta a { color: var(--accent); text-decoration: none; }
+  .scope-badge {
+    display: inline-block;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 2px 10px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .banner {
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    margin-bottom: 16px;
+    display: none;
+  }
+  .banner.error { background: #fdecea; color: var(--bad); display: block; }
+  .banner.info { background: var(--accent-soft); color: var(--accent); display: block; }
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px 18px;
+    margin-bottom: 20px;
+    font-size: 13px;
+  }
+  .filter-bar .filter-label { font-weight: 700; margin-right: 4px; }
+  .filter-bar select, .filter-bar input[type="date"] {
+    font: inherit;
+    color: var(--text);
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 10px;
+  }
+  .filter-bar .filter-tilde { color: var(--muted); }
+  .filter-bar .filter-note { color: var(--muted); font-size: 12px; margin-left: auto; }
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .kpi-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 18px;
+  }
+  .kpi-card .label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .kpi-card .value { font-size: 26px; font-weight: 700; }
+  .kpi-card .delta { font-size: 12px; margin-top: 6px; font-weight: 600; }
+  .delta.up { color: var(--good); }
+  .delta.down { color: var(--bad); }
+  .delta.flat { color: var(--muted); }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+  }
+  .card h2 { font-size: 15px; margin: 0 0 12px 0; }
+  .card .note { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .chart-wrap { position: relative; height: 260px; }
+  .week-label { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+  .empty { color: var(--muted); font-size: 13px; padding: 20px 0; text-align: center; }
+  .content-detail-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .content-detail-head select {
+    font: inherit;
+    color: var(--text);
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 10px;
+    max-width: 360px;
+  }
+  .content-detail-title { font-size: 13px; font-weight: 700; color: var(--accent); }
+  .ai-note-box {
+    background: var(--accent-soft);
+    border: 1px dashed var(--accent);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .ai-note-box .tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    background: #fff;
+    border-radius: 999px;
+    padding: 2px 8px;
+    margin-bottom: 8px;
+  }
+  .ai-note-box button {
+    margin-top: 10px;
+    font: inherit;
+    font-size: 12px;
+    color: var(--muted);
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    cursor: not-allowed;
+  }
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <div>
+      <h1>블로그 오운드 마케팅 성과 대시보드 <span class="scope-badge">B2B · 기업교육 블로그</span></h1>
+      <div class="sub">GA4 주간 자동 수집 데이터 · blog.uphone.app · 워드프레스 "기업 교육" 카테고리 콘텐츠 기준 (B2B2C 등 다른 카테고리는 미포함)</div>
+    </div>
+    <div class="meta">
+      <div>마지막 확인: <span id="last-updated">-</span></div>
+      <div><a href="https://docs.google.com/spreadsheets/d/19_wofUZ0jOft-Joort8B6R0caAF1m5hldv8TwUpefoc/edit" target="_blank" rel="noopener">원본 시트 열기 ↗</a></div>
+    </div>
+  </div>
+
+  <div id="banner-error" class="banner error"></div>
+  <div id="banner-info" class="banner info"></div>
+
+  <div class="filter-bar">
+    <span class="filter-label">조회기간</span>
+    <select id="period-preset">
+      <option value="1" selected>이번 주</option>
+      <option value="4">최근 4주 (이번 주 포함)</option>
+      <option value="8">최근 8주 (이번 주 포함)</option>
+      <option value="12">최근 12주 (이번 주 포함)</option>
+      <option value="all">전체 기간</option>
+      <option value="custom">직접 설정</option>
+    </select>
+    <input type="date" id="period-from" title="시작일">
+    <span class="filter-tilde">~</span>
+    <input type="date" id="period-to" title="종료일">
+    <span class="filter-note">기본은 이번 주 기준이며, 기간을 바꾸면 해당 기간 전체를 합산해 표시합니다.</span>
+  </div>
+
+  <div class="kpi-grid" id="kpi-grid">
+    <div class="kpi-card"><div class="label">조회수 (Views)</div><div class="value">-</div></div>
+    <div class="kpi-card"><div class="label">활성 사용자</div><div class="value">-</div></div>
+    <div class="kpi-card"><div class="label">평균 참여 시간</div><div class="value">-</div></div>
+    <div class="kpi-card"><div class="label">참여율</div><div class="value">-</div></div>
+  </div>
+
+  <div class="card">
+    <h2>주간 트렌드</h2>
+    <div class="chart-wrap"><canvas id="trend-chart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <h2>이번 주 콘텐츠별 성과 TOP 10</h2>
+    <div class="week-label" id="top-week-label"></div>
+    <div class="chart-wrap" style="height:420px;"><canvas id="top-content-chart"></canvas></div>
+    <div id="top-content-empty" class="empty" style="display:none;">데이터가 없습니다.</div>
+  </div>
+
+  <div class="card" id="content-detail-card" style="display:none;">
+    <div class="content-detail-head">
+      <h2 style="margin:0;">콘텐츠 상세 보기</h2>
+      <select id="content-select">
+        <option value="">전체 콘텐츠 합산</option>
+      </select>
+    </div>
+    <div class="content-detail-title" id="content-detail-title"></div>
+    <div class="kpi-grid" id="content-kpi-grid" style="margin-top:12px;"></div>
+    <div class="chart-wrap" style="margin-top:12px;"><canvas id="content-trend-chart"></canvas></div>
+    <div class="note">선택한 콘텐츠의 조회기간 내 주간 추이입니다. 상단 "조회기간" 필터를 바꾸면 이 차트도 함께 갱신됩니다.</div>
+  </div>
+
+  <div class="card" id="channel-card" style="display:none;">
+    <h2>채널(소스/매체)별 유입</h2>
+    <div class="week-label" id="channel-week-label"></div>
+    <div class="chart-wrap" style="height:300px;"><canvas id="channel-chart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <h2>AI 자동 분석 <span style="font-weight:400;color:var(--muted);font-size:12px;">(준비 중 · 로드맵)</span></h2>
+    <div class="ai-note-box">
+      <div class="tag">TODO</div>
+      <div>회의에서 논의된 아이디어: 이 콘텐츠가 다른 콘텐츠 대비 무엇이 좋고 나쁜지를 AI가 자동으로 코멘트로 달아주는 기능. 루커스튜디오+Gemini 연동 또는 Claude/Gemini API를 서버리스 프록시 뒤에서 호출해 주간 비교 인사이트를 생성하는 방식으로 구현 예정입니다.</div>
+      <div style="margin-top:6px;color:var(--muted);font-size:12px;">주의: API 키를 이 프론트엔드 코드에 직접 넣지 말고, 반드시 Apps Script 웹앱이나 서버리스 프록시를 통해 호출하도록 구현해야 합니다.</div>
+      <button type="button" disabled>AI 인사이트 생성 (준비 중)</button>
+    </div>
+  </div>
+
+  <div class="card" id="fallback-card" style="display:none;">
+    <h2>원본 데이터</h2>
+    <div class="note">자동 표 인식에 실패해 원본 텍스트를 그대로 표시합니다.</div>
+    <pre id="fallback-text" style="white-space:pre-wrap;font-size:12px;max-height:400px;overflow:auto;"></pre>
+  </div>
+
+  <script>
+    // ==================== Google Sheets API 설정 ====================
+    // 1) https://console.cloud.google.com 에서 프로젝트 생성 후 "Google Sheets API" 사용 설정
+    // 2) 사용자 인증 정보 > API 키 생성 (HTTP 리퍼러 제한 권장)
+    // 3) 스프레드시트 공유 설정: "링크가 있는 모든 사용자 - 뷰어"
+    const SPREADSHEET_ID = "19_wofUZ0jOft-Joort8B6R0caAF1m5hldv8TwUpefoc";
+    const API_KEY = "AIzaSyBAyz0hnLASuRi0DJMpZZdgtvFLJueokfk";  // ← 여기에 Google Cloud API 키 입력
+    const SHEETS_API_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
+    const CACHE_KEY = "bcm_blog_dashboard_cache_v2";
+
+    // ==================== 시트 헤더 컬럼명 상수 ====================
+    // 원본 구글시트의 컬럼 헤더 텍스트가 바뀌면 이 객체만 수정하면 됩니다.
+    const COLUMNS = {
+      START: '시작일',
+      END: '종료일',
+      TITLE: '페이지 제목',
+      VIEWS: '조회수 (Views)',
+      USERS: '활성 사용자',
+      ENGAGEMENT_SEC: '평균 참여 시간 (초)',
+      EVENTS: '이벤트 수',
+      SESSIONS: '세션 수',
+      PARTICIPATING_SESSIONS: '참여 세션 수',
+      SOURCE: '소스',
+      CHANNEL_GROUP: '채널 그룹',
+      MEDIUM: '매체 (Medium)'
+    };
+
+    const fmtInt = (n) => new Intl.NumberFormat('ko-KR').format(Math.round(n));
+    const fmtSec = (n) => {
+      const s = Math.round(n);
+      if (s < 60) return s + '초';
+      const m = Math.floor(s / 60), r = s % 60;
+      return m + '분 ' + r + '초';
+    };
+    const escapeHtml = (s) => String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+    // ==================== Google Sheets API 호출 ====================
+    // 날짜 셀 정규화: 시리얼 숫자(구글시트 내부값) 또는 다양한 문자열 형식 → 'YYYY-MM-DD'
+    function normalizeDateCell(v) {
+      if (v === undefined || v === null || v === '') return '';
+      // 구글시트 날짜 시리얼 숫자 (기준일 1899-12-30)
+      if (typeof v === 'number') {
+        const d = new Date(Date.UTC(1899, 11, 30) + v * 86400000);
+        return d.toISOString().slice(0, 10);
+      }
+      const s = String(v).trim();
+      // 이미 YYYY-MM-DD
+      let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (m) return m[1] + '-' + m[2] + '-' + m[3];
+      // '2026. 1. 5.' / '2026.01.05' / '2026/1/5' 등
+      m = s.match(/^(\d{4})[.\/\-]\s*(\d{1,2})[.\/\-]\s*(\d{1,2})/);
+      if (m) return m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0');
+      return s;
+    }
+    const isDateHeader = (h) => h.includes(COLUMNS.START) || h.includes(COLUMNS.END);
+
+    // 시트 값 2차원 배열([행][열]) → { name, headers, records } 형태로 변환
+    function valuesToSheet(name, values) {
+      if (!values || values.length === 0) return null;
+      // 첫 번째 비어있지 않은 행을 헤더로 사용
+      const headerIdx = values.findIndex(row => row && row.some(c => String(c).trim() !== ''));
+      if (headerIdx === -1) return null;
+      const headers = values[headerIdx].map(h => String(h).trim());
+      const records = values.slice(headerIdx + 1)
+        .filter(row => row && row.some(c => String(c).trim() !== ''))
+        .map(row => {
+          const obj = {};
+          headers.forEach((h, i) => {
+            const raw = row[i] !== undefined ? row[i] : '';
+            obj[h] = isDateHeader(h) ? normalizeDateCell(raw) : String(raw).trim();
+          });
+          return obj;
+        });
+      return { name, headers, records };
+    }
+
+    // 스프레드시트의 모든 탭 이름 조회 후 batchGet으로 전체 데이터 가져오기
+    async function fetchAllSheets() {
+      if (!API_KEY) {
+        throw new Error('API 키가 설정되지 않았습니다. 파일 상단의 API_KEY에 Google Cloud API 키를 입력해 주세요.');
+      }
+      // 1) 탭(시트) 목록 조회
+      const metaUrl = SHEETS_API_BASE + '/' + SPREADSHEET_ID
+        + '?fields=sheets.properties.title&key=' + encodeURIComponent(API_KEY);
+      const metaRes = await fetch(metaUrl);
+      if (!metaRes.ok) {
+        const errBody = await metaRes.json().catch(() => null);
+        const reason = errBody?.error?.message || ('HTTP ' + metaRes.status);
+        throw new Error('시트 정보 조회 실패: ' + reason);
+      }
+      const meta = await metaRes.json();
+      const titles = (meta.sheets || []).map(s => s.properties.title);
+      if (titles.length === 0) throw new Error('스프레드시트에 탭이 없습니다.');
+
+      // 2) 모든 탭 데이터를 한 번의 batchGet으로 조회
+      const rangesQS = titles.map(t => 'ranges=' + encodeURIComponent("'" + t + "'")).join('&');
+      const valuesUrl = SHEETS_API_BASE + '/' + SPREADSHEET_ID
+        + '/values:batchGet?' + rangesQS
+        + '&valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING'
+        + '&key=' + encodeURIComponent(API_KEY);
+      const valRes = await fetch(valuesUrl);
+      if (!valRes.ok) {
+        const errBody = await valRes.json().catch(() => null);
+        const reason = errBody?.error?.message || ('HTTP ' + valRes.status);
+        throw new Error('시트 데이터 조회 실패: ' + reason);
+      }
+      const valData = await valRes.json();
+      const sheets = (valData.valueRanges || [])
+        .map((vr, i) => valuesToSheet(titles[i], vr.values))
+        .filter(Boolean);
+      return sheets;
+    }
+
+    function findSheet(sheets, mustInclude, mustExclude) {
+      mustExclude = mustExclude || [];
+      return sheets.find(s =>
+        mustInclude.every(k => s.headers.some(h => h.includes(k))) &&
+        !mustExclude.some(k => s.headers.some(h => h.includes(k)))
+      );
+    }
+
+    function weekKey(rec) { return (rec[COLUMNS.START] || '') + '~' + (rec[COLUMNS.END] || ''); }
+    function weekLabel(rec) {
+      const s = (rec[COLUMNS.START] || '').slice(5).replace('-', '/');
+      const e = (rec[COLUMNS.END] || '').slice(5).replace('-', '/');
+      return s + ' ~ ' + e;
+    }
+
+    function num(v) {
+      const n = parseFloat(String(v).replace(/,/g, ''));
+      return isNaN(n) ? 0 : n;
+    }
+
+    // ---- Normalize both sheet schemas into a common per-page-per-week row shape ----
+    // Schema A (콘텐츠별_주간성과): 조회수/활성사용자/평균참여시간/이벤트수, 참여율 없음.
+    function normalizeContentOnly(records) {
+      return records.map(r => ({
+        [COLUMNS.START]: r[COLUMNS.START], [COLUMNS.END]: r[COLUMNS.END],
+        title: r[COLUMNS.TITLE] || '',
+        primary: num(r[COLUMNS.VIEWS]),
+        users: num(r[COLUMNS.USERS]),
+        engagement: num(r[COLUMNS.ENGAGEMENT_SEC]),
+        events: num(r[COLUMNS.EVENTS]),
+        rate: null,
+        participSessions: null
+      }));
+    }
+    // Schema B (콘텐츠_소스매체_통합): 여러 소스/매체 행을 페이지 단위로 합산, 참여율 계산 가능.
+    function normalizeIntegrated(records) {
+      const map = new Map();
+      records.forEach(r => {
+        const key = weekKey(r) + '||' + (r[COLUMNS.TITLE] || '');
+        if (!map.has(key)) {
+          map.set(key, { [COLUMNS.START]: r[COLUMNS.START], [COLUMNS.END]: r[COLUMNS.END], title: r[COLUMNS.TITLE] || '', sessions: 0, users: 0, particip: 0, engWeighted: 0 });
+        }
+        const a = map.get(key);
+        const s = num(r[COLUMNS.SESSIONS]);
+        a.sessions += s;
+        a.users += num(r[COLUMNS.USERS]);
+        a.particip += num(r[COLUMNS.PARTICIPATING_SESSIONS]);
+        a.engWeighted += num(r[COLUMNS.ENGAGEMENT_SEC]) * s;
+      });
+      return [...map.values()].map(a => ({
+        [COLUMNS.START]: a[COLUMNS.START], [COLUMNS.END]: a[COLUMNS.END], title: a.title,
+        primary: a.sessions,
+        users: a.users,
+        engagement: a.sessions > 0 ? a.engWeighted / a.sessions : 0,
+        events: null,
+        rate: a.sessions > 0 ? (a.particip / a.sessions) * 100 : 0,
+        participSessions: a.particip
+      }));
+    }
+
+    function deltaHtml(curr, prev, caption) {
+      caption = caption || '전주 대비';
+      if (prev === 0 || prev === undefined || prev === null) {
+        return '<div class="delta flat">이전 기간 데이터 없음</div>';
+      }
+      const pct = ((curr - prev) / prev) * 100;
+      const cls = pct > 0.5 ? 'up' : (pct < -0.5 ? 'down' : 'flat');
+      const arrow = pct > 0.5 ? '▲' : (pct < -0.5 ? '▼' : '·');
+      return '<div class="delta ' + cls + '">' + arrow + ' ' + (pct >= 0 ? '+' : '') + pct.toFixed(1) + '% ' + caption + '</div>';
+    }
+
+    function deltaHtmlPP(curr, prev, caption) {
+      caption = caption || '전주 대비';
+      if (prev === undefined || prev === null) {
+        return '<div class="delta flat">이전 기간 데이터 없음</div>';
+      }
+      const diff = curr - prev;
+      const cls = diff > 0.05 ? 'up' : (diff < -0.05 ? 'down' : 'flat');
+      const arrow = diff > 0.05 ? '▲' : (diff < -0.05 ? '▼' : '·');
+      return '<div class="delta ' + cls + '">' + arrow + ' ' + (diff >= 0 ? '+' : '') + diff.toFixed(1) + '%p ' + caption + '</div>';
+    }
+
+    // 주간 집계 배열 → 기간 전체 합산
+    function aggregatePeriod(weeksArr) {
+      const agg = { primary: 0, users: 0, events: 0, hasEvents: false, particip: 0, hasRate: false, engW: 0 };
+      weeksArr.forEach(w => {
+        agg.primary += w.primary;
+        agg.users += w.users;
+        agg.engW += w.avgEngagement * w.primary;
+        if (w.hasEvents) { agg.events += w.events; agg.hasEvents = true; }
+        if (w.hasRate) { agg.particip += (w.participSessions || 0); agg.hasRate = true; }
+      });
+      agg.avgEngagement = agg.primary > 0 ? agg.engW / agg.primary : 0;
+      agg.rate = agg.hasRate && agg.primary > 0 ? (agg.particip / agg.primary) * 100 : null;
+      return agg;
+    }
+
+    function periodLabel(weeksArr) {
+      if (weeksArr.length === 0) return '';
+      if (weeksArr.length === 1) return weeksArr[0].label;
+      const start = weeksArr[0].label.split(' ~ ')[0];
+      const end = weeksArr[weeksArr.length - 1].label.split(' ~ ')[1];
+      return start + ' ~ ' + end + ' · ' + weeksArr.length + '주 합산';
+    }
+
+    // gridEl: KPI 카드를 그릴 대상 grid 엘리먼트 (전체 요약 / 콘텐츠 상세에서 재사용)
+    function renderKpis(gridEl, currentWeeks, prevWeeks, meta) {
+      if (currentWeeks.length === 0) {
+        gridEl.innerHTML = '<div class="empty">표시할 주간 데이터가 없습니다.</div>';
+        return;
+      }
+      const cur = aggregatePeriod(currentWeeks);
+      const prev = prevWeeks.length > 0 ? aggregatePeriod(prevWeeks) : null;
+      const label = periodLabel(currentWeeks);
+      const caption = currentWeeks.length === 1 ? '전주 대비' : '직전 ' + prevWeeks.length + '주 대비';
+      const fourthCard = meta.hasRate
+        ? { label: '참여율 · ' + label, value: (cur.rate !== null ? cur.rate.toFixed(1) : '-') + '%', html: deltaHtmlPP(cur.rate, prev ? prev.rate : null, caption) }
+        : { label: '이벤트 수 · ' + label, value: fmtInt(cur.events), html: deltaHtml(cur.events, prev ? prev.events : 0, caption) };
+      const cards = [
+        { label: meta.primaryLabel + ' · ' + label, value: fmtInt(cur.primary), html: deltaHtml(cur.primary, prev ? prev.primary : 0, caption) },
+        { label: '활성 사용자 · ' + label, value: fmtInt(cur.users), html: deltaHtml(cur.users, prev ? prev.users : 0, caption) },
+        { label: '평균 참여 시간 · ' + label, value: fmtSec(cur.avgEngagement), html: deltaHtml(cur.avgEngagement, prev ? prev.avgEngagement : 0, caption) },
+        fourthCard,
+      ];
+      gridEl.innerHTML = cards.map(c =>
+        '<div class="kpi-card"><div class="label">' + c.label + '</div><div class="value">' + c.value + '</div>' + c.html + '</div>'
+      ).join('');
+    }
+
+    let trendChartInstance = null;
+    function renderTrendChart(weeks, meta) {
+      const ctx = document.getElementById('trend-chart');
+      if (trendChartInstance) trendChartInstance.destroy();
+      if (weeks.length === 0) return;
+      trendChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: weeks.map(w => w.label),
+          datasets: [
+            {
+              label: meta.primaryLabel,
+              data: weeks.map(w => w.primary),
+              borderColor: '#4f46e5',
+              backgroundColor: 'rgba(79,70,229,0.12)',
+              tension: 0.3,
+              fill: true,
+              yAxisID: 'y'
+            },
+            {
+              label: '활성 사용자',
+              data: weeks.map(w => w.users),
+              borderColor: '#0f9d58',
+              backgroundColor: 'rgba(15,157,88,0.10)',
+              tension: 0.3,
+              fill: true,
+              yAxisID: 'y'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: { y: { beginAtZero: true } },
+          plugins: { legend: { position: 'bottom' } }
+        }
+      });
+    }
+
+    // ==================== 콘텐츠 상세 (드릴다운) ====================
+    // 현재 필터된 기간의 정규화된 row들과 전체(필터 이전) row들을 보관해
+    // 콘텐츠 선택 시 다시 fetch 하지 않고 바로 필터링만 해서 그릴 수 있게 합니다.
+    let contentDetailState = { normRows: [], fullNormRows: [], meta: null };
+    let contentTrendChartInstance = null;
+
+    function populateContentSelect(normRows) {
+      const sel = document.getElementById('content-select');
+      const totals = new Map();
+      normRows.forEach(r => {
+        if (!r.title) return;
+        totals.set(r.title, (totals.get(r.title) || 0) + r.primary);
+      });
+      const titles = [...totals.keys()].sort((a, b) => totals.get(b) - totals.get(a));
+      const prevValue = sel.value;
+      sel.innerHTML = '<option value="">전체 콘텐츠 합산</option>' +
+        titles.map(t => '<option value="' + escapeHtml(t) + '">' + escapeHtml(truncateTitle(t, 44)) + '</option>').join('');
+      sel.value = titles.includes(prevValue) ? prevValue : '';
+    }
+
+    function renderContentTrendChart(weeks, meta) {
+      const ctx = document.getElementById('content-trend-chart');
+      if (contentTrendChartInstance) contentTrendChartInstance.destroy();
+      if (weeks.length === 0) return;
+      contentTrendChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: weeks.map(w => w.label),
+          datasets: [
+            {
+              label: meta.primaryLabel,
+              data: weeks.map(w => w.primary),
+              borderColor: '#4f46e5',
+              backgroundColor: 'rgba(79,70,229,0.12)',
+              tension: 0.3,
+              fill: true,
+              yAxisID: 'y'
+            },
+            {
+              label: '활성 사용자',
+              data: weeks.map(w => w.users),
+              borderColor: '#0f9d58',
+              backgroundColor: 'rgba(15,157,88,0.10)',
+              tension: 0.3,
+              fill: true,
+              yAxisID: 'y'
+            },
+            {
+              label: '평균 참여 시간(초)',
+              data: weeks.map(w => Math.round(w.avgEngagement)),
+              borderColor: '#f4b400',
+              backgroundColor: 'rgba(244,180,0,0.08)',
+              tension: 0.3,
+              fill: false,
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            y: { beginAtZero: true, position: 'left', title: { display: true, text: meta.primaryLabel + ' / 사용자', font: { size: 11 } } },
+            y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: '참여 시간(초)', font: { size: 11 } } }
+          },
+          plugins: { legend: { position: 'bottom' } }
+        }
+      });
+    }
+
+    function renderContentDetail() {
+      const sel = document.getElementById('content-select');
+      const selected = sel.value;
+      const card = document.getElementById('content-detail-card');
+      const meta = contentDetailState.meta;
+      if (!selected || !meta) {
+        card.style.display = 'none';
+        return;
+      }
+      card.style.display = 'block';
+      document.getElementById('content-detail-title').textContent = selected;
+
+      const rowsForTitle = contentDetailState.normRows.filter(r => r.title === selected);
+      const weeks = buildWeeklyAggregates(rowsForTitle);
+
+      // 직전 동일 길이 기간 (필터 이전 전체 데이터 기준)
+      let prevWeeks = [];
+      if (weeks.length > 0) {
+        const fullRowsForTitle = contentDetailState.fullNormRows.filter(r => r.title === selected);
+        const fullWeeks = buildWeeklyAggregates(fullRowsForTitle);
+        const firstKey = weeks[0].sortKey;
+        const idx = fullWeeks.findIndex(w => w.sortKey === firstKey);
+        if (idx > 0) prevWeeks = fullWeeks.slice(Math.max(0, idx - weeks.length), idx);
+      }
+
+      renderKpis(document.getElementById('content-kpi-grid'), weeks, prevWeeks, meta);
+      renderContentTrendChart(weeks, meta);
+    }
+
+    let topContentChartInstance = null;
+    function truncateTitle(t, max) {
+      t = String(t);
+      return t.length > max ? t.slice(0, max) + '…' : t;
+    }
+
+    function renderTopContent(latestWeekRows, meta) {
+      const canvas = document.getElementById('top-content-chart');
+      const emptyEl = document.getElementById('top-content-empty');
+      if (topContentChartInstance) { topContentChartInstance.destroy(); topContentChartInstance = null; }
+      if (!latestWeekRows || latestWeekRows.length === 0) {
+        canvas.parentElement.style.display = 'none';
+        emptyEl.style.display = 'block';
+        return;
+      }
+      canvas.parentElement.style.display = 'block';
+      emptyEl.style.display = 'none';
+
+      const sorted = [...latestWeekRows].sort((a, b) => b.primary - a.primary).slice(0, 10);
+      topContentChartInstance = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: sorted.map(r => truncateTitle(r.title, 24)),
+          datasets: [{
+            label: meta.primaryLabel,
+            data: sorted.map(r => Math.round(r.primary)),
+            backgroundColor: 'rgba(79,70,229,0.75)',
+            hoverBackgroundColor: '#4f46e5',
+            borderRadius: 6,
+            barPercentage: 0.7
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          onClick: (evt, elements) => {
+            if (!elements.length) return;
+            const title = sorted[elements[0].index].title;
+            const sel = document.getElementById('content-select');
+            if ([...sel.options].some(o => o.value === title)) {
+              sel.value = title;
+              renderContentDetail();
+              document.getElementById('content-detail-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          },
+          scales: {
+            x: { beginAtZero: true, title: { display: true, text: meta.primaryLabel, font: { size: 11 } } },
+            y: { ticks: { font: { size: 11 }, autoSkip: false } }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: (items) => sorted[items[0].dataIndex].title,
+                label: (ctx) => {
+                  const r = sorted[ctx.dataIndex];
+                  const lines = [
+                    ' ' + meta.primaryLabel + ': ' + fmtInt(r.primary),
+                    ' 활성 사용자: ' + fmtInt(r.users),
+                    ' 평균 참여: ' + fmtSec(r.engagement)
+                  ];
+                  lines.push(meta.hasRate
+                    ? ' 참여율: ' + r.rate.toFixed(1) + '%'
+                    : ' 이벤트 수: ' + fmtInt(r.events));
+                  lines.push(' (클릭하면 콘텐츠 상세 보기로 이동)');
+                  return lines;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    let channelChartInstance = null;
+    const CHANNEL_COLORS = ['#4f46e5', '#0f9d58', '#f4b400', '#d93025', '#00acc1', '#ab47bc', '#ff7043', '#5c6bc0', '#26a69a', '#8d6e63'];
+
+    // 열 이름 유연 매칭: 정확 일치 → 공백 제거 후 일치 → 부분 포함 순으로 탐색
+    function pickField(rec, candidates, excludeSubstr) {
+      const norm = (s) => String(s).replace(/\s+/g, '');
+      const keys = Object.keys(rec).filter(k => !excludeSubstr || !norm(k).includes(norm(excludeSubstr)));
+      for (const cand of candidates) {
+        if (rec[cand] !== undefined && keys.includes(cand)) return rec[cand];
+      }
+      for (const cand of candidates) {
+        const k = keys.find(k => norm(k) === norm(cand));
+        if (k) return rec[k];
+      }
+      for (const cand of candidates) {
+        const k = keys.find(k => norm(k).includes(norm(cand)));
+        if (k) return rec[k];
+      }
+      return '';
+    }
+
+    function renderChannel(channelSheet) {
+      const card = document.getElementById('channel-card');
+      if (!channelSheet || channelSheet.records.length === 0) {
+        card.style.display = 'none';
+        return;
+      }
+      card.style.display = 'block';
+      // 기간 라벨 표시
+      const chWeeks = [...new Set(channelSheet.records.map(weekKey))].sort();
+      const first = chWeeks[0].split('~'), last = chWeeks[chWeeks.length - 1].split('~');
+      const fmt = (d) => (d || '').slice(5).replace('-', '/');
+      document.getElementById('channel-week-label').textContent =
+        chWeeks.length === 1
+          ? fmt(first[0]) + ' ~ ' + fmt(first[1]) + ' 기준'
+          : fmt(first[0]) + ' ~ ' + fmt(last[1]) + ' · ' + chWeeks.length + '주 합산 기준';
+      // 선택 기간 내 전체 레코드 합산
+      const byChannel = {};
+      channelSheet.records.forEach(r => {
+        const ch = r[COLUMNS.CHANNEL_GROUP] || r['채널그룹'] || r[COLUMNS.MEDIUM] || '기타';
+        if (!byChannel[ch]) byChannel[ch] = { sessions: 0, users: 0 };
+        byChannel[ch].sessions += num(pickField(r, [COLUMNS.SESSIONS, '세션수', '세션'], '참여'));
+        byChannel[ch].users += num(pickField(r, [COLUMNS.USERS, '활성사용자', '총 사용자', '사용자', 'Active Users', 'Users']));
+      });
+      const rows = Object.entries(byChannel).sort((a, b) => b[1].sessions - a[1].sessions);
+      const total = rows.reduce((sum, [, v]) => sum + v.sessions, 0);
+      const hasUsers = rows.some(([, v]) => v.users > 0);
+
+      const ctx = document.getElementById('channel-chart');
+      if (channelChartInstance) channelChartInstance.destroy();
+      channelChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: rows.map(([ch]) => ch),
+          datasets: [{
+            data: rows.map(([, v]) => v.sessions),
+            backgroundColor: rows.map((_, i) => CHANNEL_COLORS[i % CHANNEL_COLORS.length]),
+            borderColor: '#ffffff',
+            borderWidth: 2,
+            hoverOffset: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '58%',
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: {
+                boxWidth: 12,
+                font: { size: 12 },
+                generateLabels: (chart) => {
+                  const base = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+                  base.forEach((item, i) => {
+                    if (!rows[i]) return;
+                    const v = rows[i][1].sessions;
+                    const pct = total > 0 ? (v / total * 100).toFixed(1) : '0.0';
+                    item.text = item.text + ' · ' + pct + '%';
+                  });
+                  return base;
+                }
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => {
+                  const [, v] = rows[ctx.dataIndex];
+                  const pct = total > 0 ? (v.sessions / total * 100).toFixed(1) : '0.0';
+                  const lines = [' 세션 수: ' + fmtInt(v.sessions) + ' (' + pct + '%)'];
+                  if (hasUsers) lines.push(' 활성 사용자: ' + fmtInt(v.users));
+                  return lines;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function buildWeeklyAggregates(normRows) {
+      const map = new Map();
+      normRows.forEach(r => {
+        const key = weekKey(r);
+        if (!map.has(key)) {
+          map.set(key, { label: weekLabel(r), sortKey: r[COLUMNS.START] || '', primary: 0, users: 0, events: 0, hasEvents: false, participSessions: 0, hasRate: false, engagementWeighted: 0 });
+        }
+        const agg = map.get(key);
+        agg.primary += r.primary;
+        agg.users += r.users;
+        agg.engagementWeighted += r.engagement * r.primary;
+        if (r.events !== null) { agg.events += r.events; agg.hasEvents = true; }
+        if (r.rate !== null) { agg.participSessions += (r.participSessions || 0); agg.hasRate = true; }
+      });
+      const weeks = [...map.values()].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+      weeks.forEach(w => {
+        w.avgEngagement = w.primary > 0 ? w.engagementWeighted / w.primary : 0;
+        w.rate = w.hasRate && w.primary > 0 ? (w.participSessions / w.primary) * 100 : null;
+      });
+      return weeks;
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('banner-error');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+    function showInfo(msg) {
+      const el = document.getElementById('banner-info');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    // 기간 내 페이지별 합산 (TOP 10용)
+    function aggregateRowsByTitle(normRows) {
+      const map = new Map();
+      normRows.forEach(r => {
+        if (!map.has(r.title)) {
+          map.set(r.title, { title: r.title, primary: 0, users: 0, engW: 0, events: 0, particip: 0, hasRate: r.rate !== null });
+        }
+        const a = map.get(r.title);
+        a.primary += r.primary;
+        a.users += r.users;
+        a.engW += r.engagement * r.primary;
+        if (r.events !== null) a.events += r.events;
+        if (r.participSessions !== null) a.particip += (r.participSessions || 0);
+      });
+      return [...map.values()].map(a => ({
+        title: a.title,
+        primary: a.primary,
+        users: a.users,
+        engagement: a.primary > 0 ? a.engW / a.primary : 0,
+        events: a.events,
+        rate: a.hasRate && a.primary > 0 ? (a.particip / a.primary) * 100 : 0
+      }));
+    }
+
+    function renderFromContentSheet(sheet, isIntegrated, fullSheet) {
+      const normRows = isIntegrated ? normalizeIntegrated(sheet.records) : normalizeContentOnly(sheet.records);
+      const meta = {
+        primaryLabel: isIntegrated ? '세션 수' : COLUMNS.VIEWS,
+        hasRate: isIntegrated
+      };
+      const weeks = buildWeeklyAggregates(normRows);
+
+      // 직전 동일 길이 기간 (전체 데이터에서 선택 기간 바로 앞 N주)
+      let prevWeeks = [];
+      const fullNormRows = fullSheet ? (isIntegrated ? normalizeIntegrated(fullSheet.records) : normalizeContentOnly(fullSheet.records)) : normRows;
+      if (weeks.length > 0 && fullSheet) {
+        const fullWeeks = buildWeeklyAggregates(fullNormRows);
+        const firstKey = weeks[0].sortKey;
+        const idx = fullWeeks.findIndex(w => w.sortKey === firstKey);
+        if (idx > 0) prevWeeks = fullWeeks.slice(Math.max(0, idx - weeks.length), idx);
+      }
+
+      renderKpis(document.getElementById('kpi-grid'), weeks, prevWeeks, meta);
+      renderTrendChart(weeks, meta);
+      if (weeks.length > 0) {
+        document.getElementById('top-week-label').textContent = periodLabel(weeks) + ' 기준';
+        renderTopContent(aggregateRowsByTitle(normRows), meta);
+      } else {
+        document.getElementById('top-week-label').textContent = '';
+        renderTopContent([], meta);
+      }
+
+      // ---- 콘텐츠 상세(드릴다운) 상태 갱신 ----
+      contentDetailState = { normRows, fullNormRows, meta };
+      populateContentSelect(normRows);
+      renderContentDetail();
+    }
+
+    function renderFallback(sheets) {
+      document.getElementById('fallback-card').style.display = 'block';
+      const summary = sheets.map(s =>
+        '# ' + s.name + '\n헤더: ' + s.headers.join(', ') + '\n행 수: ' + s.records.length
+      ).join('\n\n');
+      document.getElementById('fallback-text').textContent = summary || '(빈 응답)';
+    }
+
+    function renderSheets(sheets, fullSheets) {
+      fullSheets = fullSheets || sheets;
+      const integratedSheet = findSheet(sheets, [COLUMNS.TITLE, COLUMNS.SOURCE]);
+      const contentOnlySheet = findSheet(sheets, [COLUMNS.TITLE, COLUMNS.VIEWS], [COLUMNS.SOURCE]);
+      const channelOnlySheet = findSheet(sheets, [COLUMNS.SOURCE], [COLUMNS.TITLE]);
+      const fullIntegrated = findSheet(fullSheets, [COLUMNS.TITLE, COLUMNS.SOURCE]);
+      const fullContentOnly = findSheet(fullSheets, [COLUMNS.TITLE, COLUMNS.VIEWS], [COLUMNS.SOURCE]);
+
+      if (!integratedSheet && !contentOnlySheet && !channelOnlySheet) {
+        renderFallback(sheets);
+        showInfo('자동 인식 가능한 표를 찾지 못했습니다. 아래에 탭별 헤더 정보를 표시했으니 원본 시트 구조를 확인해 주세요.');
+        document.getElementById('content-detail-card').style.display = 'none';
+        return;
+      }
+      document.getElementById('fallback-card').style.display = 'none';
+
+      if (integratedSheet) {
+        renderFromContentSheet(integratedSheet, true, fullIntegrated);
+        renderChannel(channelOnlySheet || integratedSheet);
+      } else if (contentOnlySheet) {
+        renderFromContentSheet(contentOnlySheet, false, fullContentOnly);
+        if (channelOnlySheet) {
+          renderChannel(channelOnlySheet);
+        } else {
+          document.getElementById('channel-card').style.display = 'none';
+        }
+        showInfo('"콘텐츠_소스매체_통합" 탭을 찾지 못해 "콘텐츠별_주간성과" 탭 기준(이벤트 수)으로 표시 중입니다. 참여율은 통합 탭이 있어야 계산할 수 있어요.');
+      } else if (channelOnlySheet) {
+        renderChannel(channelOnlySheet);
+        document.getElementById('kpi-grid').innerHTML = '';
+        renderTopContent([], { primaryLabel: '', hasRate: false });
+        document.getElementById('content-detail-card').style.display = 'none';
+        showInfo('채널(소스/매체) 데이터만 찾아 채널 표만 표시합니다. 콘텐츠 성과는 "페이지 제목" 열이 있는 탭이 필요해요.');
+      }
+    }
+
+    // ==================== 조회기간 필터 ====================
+    let allSheets = [];
+
+    function getAllWeekStarts(sheets) {
+      const set = new Set();
+      sheets.forEach(s => s.records.forEach(r => {
+        const d = r[COLUMNS.START];
+        if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) set.add(d);
+      }));
+      return [...set].sort();
+    }
+
+    function filterSheetsByPeriod(sheets, from, to) {
+      return sheets.map(s => ({
+        name: s.name,
+        headers: s.headers,
+        records: s.records.filter(r => {
+          const d = r[COLUMNS.START] || '';
+          if (from && d < from) return false;
+          if (to && d > to) return false;
+          return true;
+        })
+      }));
+    }
+
+    function applyFilter() {
+      if (allSheets.length === 0) return;
+      const from = document.getElementById('period-from').value;
+      const to = document.getElementById('period-to').value;
+      renderSheets(filterSheetsByPeriod(allSheets, from, to), allSheets);
+    }
+
+    // "최근 N주" 프리셋 동작 방식:
+    // 전체 주차 시작일 목록(오름차순)에서 뒤에서 N개를 골라 from = 그 중 가장 이른 시작일로 설정하고
+    // to는 비워 둡니다(= 그 이후 모든 데이터, 즉 최신 주까지 포함).
+    // 즉 "최근 4주"는 현재 존재하는 가장 최근 주(보통 이번 주)를 포함해 총 4주를 의미합니다.
+    function applyPreset() {
+      const preset = document.getElementById('period-preset').value;
+      const fromEl = document.getElementById('period-from');
+      const toEl = document.getElementById('period-to');
+      if (preset === 'all') {
+        fromEl.value = '';
+        toEl.value = '';
+      } else if (preset !== 'custom') {
+        const starts = getAllWeekStarts(allSheets);
+        const n = parseInt(preset, 10);
+        fromEl.value = starts.length > 0 ? (starts[Math.max(0, starts.length - n)]) : '';
+        toEl.value = '';
+      }
+      applyFilter();
+    }
+
+    function initPeriodFilter() {
+      const starts = getAllWeekStarts(allSheets);
+      const fromEl = document.getElementById('period-from');
+      const toEl = document.getElementById('period-to');
+      if (starts.length > 0) {
+        fromEl.min = starts[0];
+        toEl.min = starts[0];
+      }
+      document.getElementById('period-preset').addEventListener('change', applyPreset);
+      const onManualChange = () => {
+        document.getElementById('period-preset').value = 'custom';
+        applyFilter();
+      };
+      fromEl.addEventListener('change', onManualChange);
+      toEl.addEventListener('change', onManualChange);
+      document.getElementById('content-select').addEventListener('change', renderContentDetail);
+    }
+    initPeriodFilter();
+
+    async function loadData() {
+      document.getElementById('banner-error').style.display = 'none';
+      try {
+        const sheets = await fetchAllSheets();
+        allSheets = sheets;
+        applyPreset();  // 기본값: 이번 주
+
+        const now = new Date();
+        document.getElementById('last-updated').textContent = now.toLocaleString('ko-KR');
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify({ sheets, savedAt: now.toISOString() }));
+        } catch (e) { /* 캐시 용량 초과 등은 무시 */ }
+      } catch (err) {
+        console.error('loadData failed', err);
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+          try {
+            const { sheets, savedAt } = JSON.parse(cached);
+            allSheets = sheets;
+            applyPreset();  // 기본값: 이번 주
+            document.getElementById('last-updated').textContent = new Date(savedAt).toLocaleString('ko-KR') + ' (캐시)';
+            showError('실시간 갱신에 실패해 마지막으로 불러온 데이터를 표시 중입니다: ' + err.message);
+          } catch (e2) {
+            showError('데이터를 불러오지 못했습니다: ' + err.message);
+          }
+        } else {
+          showError('데이터를 불러오지 못했습니다: ' + err.message);
+        }
+      }
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
