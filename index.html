@@ -605,11 +605,20 @@
       const selected = sel.value;
       const card = document.getElementById('content-detail-card');
       const meta = contentDetailState.meta;
-      if (!selected || !meta) {
+      // 데이터 자체가 없으면 카드를 통째로 숨김
+      if (!meta) {
         card.style.display = 'none';
         return;
       }
+      // 데이터는 있지만 아직 콘텐츠를 선택하지 않은 경우: 드롭다운은 보여주고 안내 문구만 표시
       card.style.display = 'block';
+      if (!selected) {
+        document.getElementById('content-detail-title').textContent = '';
+        document.getElementById('content-kpi-grid').innerHTML =
+          '<div class="empty">위 드롭다운에서 콘텐츠를 선택하면 해당 콘텐츠의 조회기간 내 성과가 표시됩니다.</div>';
+        if (contentTrendChartInstance) { contentTrendChartInstance.destroy(); contentTrendChartInstance = null; }
+        return;
+      }
       document.getElementById('content-detail-title').textContent = selected;
 
       const rowsForTitle = contentDetailState.normRows.filter(r => r.title === selected);
@@ -914,7 +923,8 @@
       if (!integratedSheet && !contentOnlySheet && !channelOnlySheet) {
         renderFallback(sheets);
         showInfo('자동 인식 가능한 표를 찾지 못했습니다. 아래에 탭별 헤더 정보를 표시했으니 원본 시트 구조를 확인해 주세요.');
-        document.getElementById('content-detail-card').style.display = 'none';
+        contentDetailState = { normRows: [], fullNormRows: [], meta: null };
+        renderContentDetail();
         return;
       }
       document.getElementById('fallback-card').style.display = 'none';
@@ -934,7 +944,8 @@
         renderChannel(channelOnlySheet);
         document.getElementById('kpi-grid').innerHTML = '';
         renderTopContent([], { primaryLabel: '', hasRate: false });
-        document.getElementById('content-detail-card').style.display = 'none';
+        contentDetailState = { normRows: [], fullNormRows: [], meta: null };
+        renderContentDetail();
         showInfo('채널(소스/매체) 데이터만 찾아 채널 표만 표시합니다. 콘텐츠 성과는 "페이지 제목" 열이 있는 탭이 필요해요.');
       }
     }
