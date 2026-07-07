@@ -128,35 +128,6 @@
     max-width: 360px;
   }
   .content-detail-title { font-size: 13px; font-weight: 700; color: var(--accent); }
-  .ai-note-box {
-    background: var(--accent-soft);
-    border: 1px dashed var(--accent);
-    border-radius: 10px;
-    padding: 14px 16px;
-    font-size: 13px;
-    color: var(--text);
-  }
-  .ai-note-box .tag {
-    display: inline-block;
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--accent);
-    background: #fff;
-    border-radius: 999px;
-    padding: 2px 8px;
-    margin-bottom: 8px;
-  }
-  .ai-note-box button {
-    margin-top: 10px;
-    font: inherit;
-    font-size: 12px;
-    color: var(--muted);
-    background: #fff;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 6px 12px;
-    cursor: not-allowed;
-  }
 </style>
 </head>
 <body>
@@ -221,22 +192,18 @@
     <div class="kpi-grid" id="content-kpi-grid" style="margin-top:12px;"></div>
     <div class="chart-wrap" style="margin-top:12px;"><canvas id="content-trend-chart"></canvas></div>
     <div class="note">선택한 콘텐츠의 조회기간 내 주간 추이입니다. 상단 "조회기간" 필터를 바꾸면 이 차트도 함께 갱신됩니다.</div>
+
+    <div id="content-channel-section" style="display:none;margin-top:20px;padding-top:18px;border-top:1px solid var(--border);">
+      <h2 style="font-size:14px;">채널(소스/매체)별 유입 <span style="font-weight:400;color:var(--muted);font-size:12px;">· 선택 콘텐츠 기준</span></h2>
+      <div class="chart-wrap" style="height:300px;"><canvas id="content-channel-chart"></canvas></div>
+      <div id="content-channel-empty" class="empty" style="display:none;">이 콘텐츠의 채널별 유입 데이터가 없습니다.</div>
+    </div>
   </div>
 
   <div class="card" id="channel-card" style="display:none;">
     <h2>채널(소스/매체)별 유입</h2>
     <div class="week-label" id="channel-week-label"></div>
     <div class="chart-wrap" style="height:300px;"><canvas id="channel-chart"></canvas></div>
-  </div>
-
-  <div class="card">
-    <h2>AI 자동 분석 <span style="font-weight:400;color:var(--muted);font-size:12px;">(준비 중 · 로드맵)</span></h2>
-    <div class="ai-note-box">
-      <div class="tag">TODO</div>
-      <div>회의에서 논의된 아이디어: 이 콘텐츠가 다른 콘텐츠 대비 무엇이 좋고 나쁜지를 AI가 자동으로 코멘트로 달아주는 기능. 루커스튜디오+Gemini 연동 또는 Claude/Gemini API를 서버리스 프록시 뒤에서 호출해 주간 비교 인사이트를 생성하는 방식으로 구현 예정입니다.</div>
-      <div style="margin-top:6px;color:var(--muted);font-size:12px;">주의: API 키를 이 프론트엔드 코드에 직접 넣지 말고, 반드시 Apps Script 웹앱이나 서버리스 프록시를 통해 호출하도록 구현해야 합니다.</div>
-      <button type="button" disabled>AI 인사이트 생성 (준비 중)</button>
-    </div>
   </div>
 
   <div class="card" id="fallback-card" style="display:none;">
@@ -532,7 +499,7 @@
     // ==================== 콘텐츠 상세 (드릴다운) ====================
     // 현재 필터된 기간의 정규화된 row들과 전체(필터 이전) row들을 보관해
     // 콘텐츠 선택 시 다시 fetch 하지 않고 바로 필터링만 해서 그릴 수 있게 합니다.
-    let contentDetailState = { normRows: [], fullNormRows: [], meta: null };
+    let contentDetailState = { normRows: [], fullNormRows: [], meta: null, channelRecords: null };
     let contentTrendChartInstance = null;
 
     function populateContentSelect(normRows) {
@@ -617,6 +584,8 @@
         document.getElementById('content-kpi-grid').innerHTML =
           '<div class="empty">위 드롭다운에서 콘텐츠를 선택하면 해당 콘텐츠의 조회기간 내 성과가 표시됩니다.</div>';
         if (contentTrendChartInstance) { contentTrendChartInstance.destroy(); contentTrendChartInstance = null; }
+        document.getElementById('content-channel-section').style.display = 'none';
+        if (doughnutInstances.content) { doughnutInstances.content.destroy(); doughnutInstances.content = null; }
         return;
       }
       document.getElementById('content-detail-title').textContent = selected;
@@ -636,6 +605,29 @@
 
       renderKpis(document.getElementById('content-kpi-grid'), weeks, prevWeeks, meta);
       renderContentTrendChart(weeks, meta);
+
+      // ---- 선택 콘텐츠의 채널(소스/매체)별 유입 ----
+      const channelSection = document.getElementById('content-channel-section');
+      if (!contentDetailState.channelRecords) {
+        // "콘텐츠_소스매체_통합" 탭이 없는 스키마에서는 콘텐츠별 채널 분해가 불가능
+        channelSection.style.display = 'none';
+        if (doughnutInstances.content) { doughnutInstances.content.destroy(); doughnutInstances.content = null; }
+      } else {
+        channelSection.style.display = 'block';
+        const recordsForTitle = contentDetailState.channelRecords.filter(r => (r[COLUMNS.TITLE] || '') === selected);
+        const channelRows = aggregateChannelRows(recordsForTitle);
+        const emptyEl = document.getElementById('content-channel-empty');
+        const wrapEl = document.getElementById('content-channel-chart').parentElement;
+        if (channelRows.length === 0) {
+          wrapEl.style.display = 'none';
+          emptyEl.style.display = 'block';
+          if (doughnutInstances.content) { doughnutInstances.content.destroy(); doughnutInstances.content = null; }
+        } else {
+          wrapEl.style.display = 'block';
+          emptyEl.style.display = 'none';
+          renderDoughnutChart('content-channel-chart', channelRows, 'content');
+        }
+      }
     }
 
     let topContentChartInstance = null;
@@ -713,7 +705,8 @@
       });
     }
 
-    let channelChartInstance = null;
+    // 도넛 차트별 Chart.js 인스턴스 보관 (main: 전체 채널 카드, content: 콘텐츠 상세의 채널 카드)
+    const doughnutInstances = { main: null, content: null };
     const CHANNEL_COLORS = ['#4f46e5', '#0f9d58', '#f4b400', '#d93025', '#00acc1', '#ab47bc', '#ff7043', '#5c6bc0', '#26a69a', '#8d6e63'];
 
     // 열 이름 유연 매칭: 정확 일치 → 공백 제거 후 일치 → 부분 포함 순으로 탐색
@@ -734,6 +727,130 @@
       return '';
     }
 
+    // 레코드 배열(같은 스키마의 소스/매체 행들) → 채널별 [세션수, 활성사용자] 합산 후 내림차순 정렬
+    function aggregateChannelRows(records) {
+      const byChannel = {};
+      records.forEach(r => {
+        const ch = r[COLUMNS.CHANNEL_GROUP] || r['채널그룹'] || r[COLUMNS.MEDIUM] || '기타';
+        if (!byChannel[ch]) byChannel[ch] = { sessions: 0, users: 0 };
+        byChannel[ch].sessions += num(pickField(r, [COLUMNS.SESSIONS, '세션수', '세션'], '참여'));
+        byChannel[ch].users += num(pickField(r, [COLUMNS.USERS, '활성사용자', '총 사용자', '사용자', 'Active Users', 'Users']));
+      });
+      return Object.entries(byChannel).sort((a, b) => b[1].sessions - a[1].sessions);
+    }
+
+    // 도넛 조각 밖으로 선을 그어 "채널명 · 퍼센트" 라벨을 붙이는 Chart.js 플러그인.
+    // 조각 안에 표시할 공간이 부족한 문제를 해결하기 위해, 조각 중심 각도에서 선을 뽑아
+    // 도넛 바깥쪽(좌/우)에 라벨을 배치한다. 같은 방향 라벨끼리는 최소 간격을 두어 겹치지 않게 보정한다.
+    const outsideLabelLinesPlugin = {
+      id: 'outsideLabelLines',
+      afterDraw(chart) {
+        if (chart.config.type !== 'doughnut') return;
+        const meta = chart.getDatasetMeta(0);
+        if (!meta || !meta.data || meta.data.length === 0) return;
+        const dataset = chart.data.datasets[0];
+        const total = dataset.data.reduce((a, b) => a + b, 0);
+        if (total <= 0) return;
+
+        const items = [];
+        meta.data.forEach((arc, i) => {
+          const value = dataset.data[i];
+          if (!value) return;
+          const pct = (value / total) * 100;
+          if (pct < 1.5) return; // 너무 작은 조각은 라벨을 생략해 겹침을 줄임 (툴팁으로 확인 가능)
+          const angle = (arc.startAngle + arc.endAngle) / 2;
+          const isRight = Math.cos(angle) >= 0;
+          const outerR = arc.outerRadius;
+          const cx = arc.x, cy = arc.y;
+          const sx = cx + Math.cos(angle) * outerR;
+          const sy = cy + Math.sin(angle) * outerR;
+          const bendR = outerR + 14;
+          const bx = cx + Math.cos(angle) * bendR;
+          const by = cy + Math.sin(angle) * bendR;
+          const labelX = cx + (isRight ? 1 : -1) * (outerR + 46);
+          items.push({
+            isRight, sx, sy, bx, by, labelX, labelY: by,
+            text: truncateTitle(chart.data.labels[i], 12) + ' ' + pct.toFixed(1) + '%'
+          });
+        });
+
+        ['left', 'right'].forEach(side => {
+          const group = items.filter(it => (side === 'right') === it.isRight).sort((a, b) => a.labelY - b.labelY);
+          const minGap = 14;
+          for (let k = 1; k < group.length; k++) {
+            if (group[k].labelY - group[k - 1].labelY < minGap) {
+              group[k].labelY = group[k - 1].labelY + minGap;
+            }
+          }
+        });
+
+        const ctx = chart.ctx;
+        ctx.save();
+        ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", "Pretendard", sans-serif';
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#b7bcc7';
+        items.forEach(it => {
+          ctx.beginPath();
+          ctx.moveTo(it.sx, it.sy);
+          ctx.lineTo(it.bx, it.by);
+          ctx.lineTo(it.labelX + (it.isRight ? -6 : 6), it.labelY);
+          ctx.stroke();
+          ctx.fillStyle = '#1f2430';
+          ctx.textAlign = it.isRight ? 'left' : 'right';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(it.text, it.labelX, it.labelY);
+        });
+        ctx.restore();
+      }
+    };
+
+    // 채널 집계 rows([채널명, {sessions, users}][]) → 도넛 차트 렌더링 (공통 재사용 함수)
+    function renderDoughnutChart(canvasId, rows, instanceKey) {
+      const canvas = document.getElementById(canvasId);
+      if (doughnutInstances[instanceKey]) { doughnutInstances[instanceKey].destroy(); doughnutInstances[instanceKey] = null; }
+      if (!rows || rows.length === 0) return;
+      const total = rows.reduce((sum, [, v]) => sum + v.sessions, 0);
+      const hasUsers = rows.some(([, v]) => v.users > 0);
+      doughnutInstances[instanceKey] = new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+          labels: rows.map(([ch]) => ch),
+          datasets: [{
+            data: rows.map(([, v]) => v.sessions),
+            backgroundColor: rows.map((_, i) => CHANNEL_COLORS[i % CHANNEL_COLORS.length]),
+            borderColor: '#ffffff',
+            borderWidth: 2,
+            hoverOffset: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '55%',
+          radius: '60%',
+          layout: { padding: 12 },
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: { boxWidth: 12, font: { size: 12 } }
+            },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => {
+                  const [, v] = rows[ctx.dataIndex];
+                  const pct = total > 0 ? (v.sessions / total * 100).toFixed(1) : '0.0';
+                  const lines = [' 세션 수: ' + fmtInt(v.sessions) + ' (' + pct + '%)'];
+                  if (hasUsers) lines.push(' 활성 사용자: ' + fmtInt(v.users));
+                  return lines;
+                }
+              }
+            }
+          }
+        },
+        plugins: [outsideLabelLinesPlugin]
+      });
+    }
+
     function renderChannel(channelSheet) {
       const card = document.getElementById('channel-card');
       if (!channelSheet || channelSheet.records.length === 0) {
@@ -749,68 +866,7 @@
         chWeeks.length === 1
           ? fmt(first[0]) + ' ~ ' + fmt(first[1]) + ' 기준'
           : fmt(first[0]) + ' ~ ' + fmt(last[1]) + ' · ' + chWeeks.length + '주 합산 기준';
-      // 선택 기간 내 전체 레코드 합산
-      const byChannel = {};
-      channelSheet.records.forEach(r => {
-        const ch = r[COLUMNS.CHANNEL_GROUP] || r['채널그룹'] || r[COLUMNS.MEDIUM] || '기타';
-        if (!byChannel[ch]) byChannel[ch] = { sessions: 0, users: 0 };
-        byChannel[ch].sessions += num(pickField(r, [COLUMNS.SESSIONS, '세션수', '세션'], '참여'));
-        byChannel[ch].users += num(pickField(r, [COLUMNS.USERS, '활성사용자', '총 사용자', '사용자', 'Active Users', 'Users']));
-      });
-      const rows = Object.entries(byChannel).sort((a, b) => b[1].sessions - a[1].sessions);
-      const total = rows.reduce((sum, [, v]) => sum + v.sessions, 0);
-      const hasUsers = rows.some(([, v]) => v.users > 0);
-
-      const ctx = document.getElementById('channel-chart');
-      if (channelChartInstance) channelChartInstance.destroy();
-      channelChartInstance = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels: rows.map(([ch]) => ch),
-          datasets: [{
-            data: rows.map(([, v]) => v.sessions),
-            backgroundColor: rows.map((_, i) => CHANNEL_COLORS[i % CHANNEL_COLORS.length]),
-            borderColor: '#ffffff',
-            borderWidth: 2,
-            hoverOffset: 8
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          cutout: '58%',
-          plugins: {
-            legend: {
-              position: 'right',
-              labels: {
-                boxWidth: 12,
-                font: { size: 12 },
-                generateLabels: (chart) => {
-                  const base = Chart.defaults.plugins.legend.labels.generateLabels(chart);
-                  base.forEach((item, i) => {
-                    if (!rows[i]) return;
-                    const v = rows[i][1].sessions;
-                    const pct = total > 0 ? (v / total * 100).toFixed(1) : '0.0';
-                    item.text = item.text + ' · ' + pct + '%';
-                  });
-                  return base;
-                }
-              }
-            },
-            tooltip: {
-              callbacks: {
-                label: (ctx) => {
-                  const [, v] = rows[ctx.dataIndex];
-                  const pct = total > 0 ? (v.sessions / total * 100).toFixed(1) : '0.0';
-                  const lines = [' 세션 수: ' + fmtInt(v.sessions) + ' (' + pct + '%)'];
-                  if (hasUsers) lines.push(' 활성 사용자: ' + fmtInt(v.users));
-                  return lines;
-                }
-              }
-            }
-          }
-        }
-      });
+      renderDoughnutChart('channel-chart', aggregateChannelRows(channelSheet.records), 'main');
     }
 
     function buildWeeklyAggregates(normRows) {
@@ -899,7 +955,8 @@
       }
 
       // ---- 콘텐츠 상세(드릴다운) 상태 갱신 ----
-      contentDetailState = { normRows, fullNormRows, meta };
+      // channelRecords: 콘텐츠별 채널(소스/매체) 분해가 가능한 "통합" 스키마일 때만 원본 레코드를 보관
+      contentDetailState = { normRows, fullNormRows, meta, channelRecords: isIntegrated ? sheet.records : null };
       populateContentSelect(normRows);
       renderContentDetail();
     }
@@ -923,7 +980,7 @@
       if (!integratedSheet && !contentOnlySheet && !channelOnlySheet) {
         renderFallback(sheets);
         showInfo('자동 인식 가능한 표를 찾지 못했습니다. 아래에 탭별 헤더 정보를 표시했으니 원본 시트 구조를 확인해 주세요.');
-        contentDetailState = { normRows: [], fullNormRows: [], meta: null };
+        contentDetailState = { normRows: [], fullNormRows: [], meta: null, channelRecords: null };
         renderContentDetail();
         return;
       }
@@ -944,7 +1001,7 @@
         renderChannel(channelOnlySheet);
         document.getElementById('kpi-grid').innerHTML = '';
         renderTopContent([], { primaryLabel: '', hasRate: false });
-        contentDetailState = { normRows: [], fullNormRows: [], meta: null };
+        contentDetailState = { normRows: [], fullNormRows: [], meta: null, channelRecords: null };
         renderContentDetail();
         showInfo('채널(소스/매체) 데이터만 찾아 채널 표만 표시합니다. 콘텐츠 성과는 "페이지 제목" 열이 있는 탭이 필요해요.');
       }
